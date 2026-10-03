@@ -1,0 +1,10 @@
+project_id = "laya-processing"
+
+[experimental]
+compute = true
+
+[compute.laya]
+runtime = "dockerfile"
+size = "4gb"
+exposure = "public"
+exclude = [".env", ".env.*", ".git"]
