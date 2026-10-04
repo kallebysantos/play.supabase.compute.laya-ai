@@ -28,6 +28,7 @@ Example:
 from __future__ import annotations
 
 import argparse
+import asyncio
 import base64
 import json
 import logging
@@ -485,11 +486,35 @@ def _router_kwargs(cfg: Dict[str, Any]) -> Dict[str, Any]:
     return kwargs
 
 
+agent_ready = asyncio.Event()
+
+
+def load_agent():
+    # Your expensive synchronous model loading
+    print("Loading Laya...")
+    agent = laya.load("convaiinnovations/laya", device="cpu")
+    print("Laya loaded!")
+    return agent
+
+
+async def load_model_background():
+    global agent
+    global ROUTER
+
+    try:
+        # Run CPU/blocking work outside the event loop
+        agent = await asyncio.to_thread(load_agent)
+        ROUTER = Router()
+        ROUTER.attach("default", agent)
+
+        agent_ready.set()
+    except Exception as e:
+        print(f"Laya loading failed: {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global ROUTER
-    ROUTER = Router()
-    # ROUTER = Router(**_router_kwargs(_CFG))
+    asyncio.create_task(load_model_background())
     yield
     ROUTER = None
 
@@ -3995,12 +4020,6 @@ async def gui_predict(request: Request) -> HTMLResponse:
         "<div class='foot'><a class='btn line' href='/'>Open the playground</a>"
         "<a class='btn' href='/docs'>API docs</a></div>",
     )
-
-
-@app.get("/_init")
-async def init():
-    agent = laya.load("convaiinnovations/laya", device="cpu")
-    ROUTER.attach("default", agent)
 
 
 @app.exception_handler(404)
