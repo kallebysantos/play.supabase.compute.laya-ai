@@ -7,8 +7,9 @@ COPY requirements.txt requirements.txt
 RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Prefetch the Laya English checkpoint during build
-RUN python -c "import laya; laya.load('convaiinnovations/laya', device='cpu')"
+# Prefetch the Laya checkpoints during build
+RUN python -c "import laya; laya.Router(device='cpu').preload(['english', 'multilingual'])"
+#RUN python -c "import laya; laya.load('convaiinnovations/laya-multilingual', device='cpu')"
 
 COPY main.py .
 

@@ -473,41 +473,26 @@ _CFG: Dict[str, Any] = {
     ),
 }
 
-
-def _router_kwargs(cfg: Dict[str, Any]) -> Dict[str, Any]:
-    """Constructor arguments for the app's Router, with the resident cap only when asked for."""
-    kwargs = {
-        "preload": cfg["preload"],
-        "device": cfg["device"],
-        "default": cfg["default"],
-    }
-    if cfg["max_loaded"] is not None:
-        kwargs["max_loaded"] = cfg["max_loaded"]
-    return kwargs
+router_ready = asyncio.Event()
 
 
-agent_ready = asyncio.Event()
-
-
-def load_agent():
+def load_router():
     # Your expensive synchronous model loading
     print("Loading Laya...")
-    agent = laya.load("convaiinnovations/laya", device="cpu")
+    router = Router(device="cpu", default="multilingual")
+    router.preload(["multilingual"])
     print("Laya loaded!")
-    return agent
+    return router
 
 
 async def load_model_background():
-    global agent
     global ROUTER
 
     try:
         # Run CPU/blocking work outside the event loop
-        agent = await asyncio.to_thread(load_agent)
-        ROUTER = Router()
-        ROUTER.attach("default", agent)
+        ROUTER = await asyncio.to_thread(load_router)
 
-        agent_ready.set()
+        router_ready.set()
     except Exception as e:
         print(f"Laya loading failed: {e}")
 
@@ -549,7 +534,7 @@ def _predict(state: Any, questions: Dict[str, Any], **kw: Any) -> Dict[str, Any]
     laya 0.3.5 (fixes #95), and inference is deliberately left outside Router's internal lock
     so concurrent predictions aren't serialised. Locking around this call would undo that.
     """
-    return _router().predict(state, questions, **kw)
+    return _router().predict(state, questions, model="multilingual", **kw)
 
 
 def _questions(model_map: Dict[str, Question]) -> Dict[str, Any]:
@@ -1230,9 +1215,9 @@ def _topbar(current: str = "", middle: str = "", tools: str = "") -> str:
     links = "".join(
         f"<a href='{href}'{' aria-current=page' if href == current else ''}>{label}</a>"
         for href, label in (
-            ("/models", "Models"),
-            ("/health", "Health"),
-            ("/docs", "API docs"),
+            ("./models", "Models"),
+            ("./health", "Health"),
+            ("./docs", "API docs"),
         )
     )
     return (
